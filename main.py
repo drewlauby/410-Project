@@ -1,6 +1,7 @@
 from neo4j import GraphDatabase
 import pandas as pd
 
+#class to connect to local Neo4j database
 class Neo4jConnection:
     
     def __init__(self, uri, user, pwd):
@@ -31,6 +32,7 @@ class Neo4jConnection:
                 session.close()
         return response
 
+#class to populate the database (only needed once)
 class populateDatabase:
 
     def createPlayers(conn):
@@ -101,109 +103,218 @@ class populateDatabase:
         populateDatabase.createTeams(conn)
         populateDatabase.createRelationships(conn)
 
-
-
 conn = Neo4jConnection(uri="bolt://localhost:7687", user="neo4j", pwd="retrieval")
 
 # Uncomment the line below to set up the database
 # populateDatabase.loadDatabase(conn)
 
-while True:
-    queryFor = input("""Would you like to query for a player or a team? (enter "exit" to exit) """)
+#get names of all players and teams for user queries
+query_string = """MATCH (p:Player) RETURN p.name"""
+playerNames = pd.DataFrame(dict(_) for _ in conn.query(query_string, db='neo4j'))
 
-    if(queryFor == "exit" or queryFor == "Exit" or queryFor == "EXIT" or queryFor == "e" or queryFor == "e"):
+query_string = """MATCH (t:Team) RETURN t.name"""
+teamNames = pd.DataFrame(dict(_) for _ in conn.query(query_string, db='neo4j'))
+
+while True:
+    query = input("""What would you like to learn about basketball? (enter "exit" to exit) """)
+
+    if(query == "exit" or query == "Exit" or query == "EXIT" or query == "E" or query == "e"):
         break
 
-    if(queryFor == "Player" or queryFor == "player" or queryFor == "PLAYER" or queryFor == "p"):
-        playerName = input("Which player would you like to know more about? ")
+    queryFor = ' '.join(elem.capitalize() for elem in query.split())
 
-#-------------------------Query for general player information and return results-----------------------#
-        print("Player Information:\n")
-        query_string = """MATCH (p:Player) WHERE p.name = '""" + playerName + """'RETURN p.name,
-        p.birthdate, p.country, p.height, p.weight, p.jerseyNumber, p.roundDrafted, p.pickDrafted,
-        p.position, p.seasonsPlayed, p.totalPoints, p.totalRebounds, p.totalAssists"""
-        result = pd.DataFrame(dict(_) for _ in conn.query(query_string, db='neo4j'))
-        result.columns = ['Name', 'Birthday', 'Country', 'Height (cm)', 'Weight (lbs)', 'Jersey Number', 
-        'Round Drafted', 'Pick Drafted', 'Position', 'Seasons', 'PPG', 
-        'RPG', 'APG'
-        ]
-        print(result.to_string(index=False))
-        print("\n")
+    if("who" and "points" in queryFor.lower()):
+        try:
+            query_string = """MATCH (p:Player) WHERE toFloat(p.totalPoints) > 0 
+            RETURN p.name, p.position, p.totalPoints ORDER BY toFloat(p.totalPoints) DESC LIMIT 10"""
+            playerResult = pd.DataFrame(dict(_) for _ in conn.query(query_string, db='neo4j'))
+            playerResult.columns = ['Name', 'Position', 'Points Per Game']
+            print(playerResult.to_string(index=False))
+            print("\n")
+        
+        except Exception as e:
+            print("Something went wrong with that query :(\n")
+    
+    elif("who" and "assists" in queryFor.lower()):
+        try:
+            query_string = """MATCH (p:Player) WHERE toFloat(p.totalAssists) > 0 
+            RETURN p.name, p.position, p.totalAssists ORDER BY toFloat(p.totalAssists) DESC LIMIT 10"""
+            playerResult = pd.DataFrame(dict(_) for _ in conn.query(query_string, db='neo4j'))
+            playerResult.columns = ['Name', 'Position', 'Assists Per Game']
+            print(playerResult.to_string(index=False))
+            print("\n")
+        
+        except Exception as e:
+            print("Something went wrong with that query :(\n")
 
-#-------------------------Query for the given player's team history and return results-----------------------#
-        print(playerName + "'s Team History:\n")
-        query_string = """
-        MATCH (p:Player)-[r:Played_For]->(t:Team)
-        WHERE p.name = '""" + playerName + """'
-        RETURN t.name, r.year
-        ORDER BY r.year
-        """
-        result = pd.DataFrame(dict(_) for _ in conn.query(query_string, db='neo4j'))
-        result.columns = ['Team Name', 'Year ' + playerName + ' Played for Them']
-        print(result.to_string(index=False))
-        print("\n")
+    elif("who" and "rebounds" in queryFor.lower()):
+        try:
+            query_string = """MATCH (p:Player) WHERE toFloat(p.totalRebounds) > 0 
+            RETURN p.name, p.position, p.totalRebounds ORDER BY toFloat(p.totalRebounds) DESC LIMIT 10"""
+            playerResult = pd.DataFrame(dict(_) for _ in conn.query(query_string, db='neo4j'))
+            playerResult.columns = ['Name', 'Position', 'Rebounds Per Game']
+            print(playerResult.to_string(index=False))
+            print("\n")
+        
+        except Exception as e:
+            print("Something went wrong with that query :(\n")
 
-#-------------------------Query for information about the given player's teams and return results-----------------------#
-        print(playerName + "'s Teams Information:\n")
-        query_string = """
-        MATCH (p:Player)-[r:Played_For]->(t:Team)
-        WHERE p.name = '""" + playerName + """'
-        RETURN DISTINCT t.name, t.city, t.coach, t.gm, t.owner, t.arena, t.arenaCapacity,
-        t.yearFounded, t.yearActiveTill
-        """
-        result = pd.DataFrame(dict(_) for _ in conn.query(query_string, db='neo4j'))
-        result.columns = ['Team Name', 'City', 'Coach', 'General Manager', 'Owner', 'Arena', 'Arena Capacity', 
-        'Year Founded', 'Year Active Until'
-        ]
-        print(result.to_string(index=False))
-        print("\n")
+    elif("who" and "tallest" in queryFor.lower()):
+        try:
+            query_string = """MATCH (p:Player) WHERE toFloat(p.height) > 0
+            RETURN p.name, p.position, p.height ORDER BY toFloat(p.height) DESC LIMIT 1"""
+            playerResult = pd.DataFrame(dict(_) for _ in conn.query(query_string, db='neo4j'))
+            playerResult.columns = ['Name', 'Position', 'Height (cm)']
+            print(playerResult.to_string(index=False))
+            print("\n")
+        
+        except Exception as e:
+            print("Something went wrong with that query :(\n")
 
-    elif(queryFor == "Team" or queryFor == "team" or queryFor == "TEAM" or queryFor == "t"):
-        teamName = input("Which team would you like to know more about? ")
+    elif("who" and "shortest" in queryFor.lower()):
+        try:
+            query_string = """MATCH (p:Player) WHERE toFloat(p.height) > 0
+            RETURN p.name, p.position, p.height ORDER BY toFloat(p.height) LIMIT 1"""
+            playerResult = pd.DataFrame(dict(_) for _ in conn.query(query_string, db='neo4j'))
+            playerResult.columns = ['Name', 'Position', 'Height (cm)']
+            print(playerResult.to_string(index=False))
+            print("\n")
+        
+        except Exception as e:
+            print("Something went wrong with that query :(\n")
 
-#-------------------------Query for general team information and return results-----------------------#
-        print(teamName + " Information:\n")
-        query_string = """MATCH (t:Team) WHERE t.name = '""" + teamName + """'RETURN t.name, t.city, t.coach, t.gm, t.owner, t.arena, t.arenaCapacity,
-        t.yearFounded, t.yearActiveTill
-        """
-        result = pd.DataFrame(dict(_) for _ in conn.query(query_string, db='neo4j'))
-        result.columns = ['Team Name', 'City', 'Coach', 'General Manager', 'Owner', 'Arena', 'Arena Capacity', 
-        'Year Founded', 'Year Active Until'
-        ]
-        print(result.to_string(index=False))
-        print("\n")
+    elif(queryFor in playerNames.values):
+
+        try:
+#-----------------------------Query for general player information and return results--------------------------------#
+            print("Player Information:\n")
+            query_string = """MATCH (p:Player) WHERE p.name = '""" + queryFor + """'RETURN p.name,
+            p.country, p.height, p.weight, p.jerseyNumber, p.roundDrafted, p.pickDrafted,
+            p.position, p.seasonsPlayed, p.totalPoints, p.totalRebounds, p.totalAssists"""
+            playerResult = pd.DataFrame(dict(_) for _ in conn.query(query_string, db='neo4j'))
+            playerResult.columns = ['Name', 'Country', 'Height (cm)', 'Weight (lbs)', 'Jersey Number', 
+            'Round Drafted', 'Pick Drafted', 'Position', 'Seasons', 'PPG', 
+            'RPG', 'APG'
+            ]
+            print(playerResult.to_string(index=False))
+            print("\n")
+
+    #----------------------------Query for the given player's team history and return results-----------------------#
+            print(queryFor + "'s Team History:\n")
+            query_string = """
+            MATCH (p:Player)-[r:Played_For]->(t:Team)
+            WHERE p.name = '""" + queryFor + """'
+            RETURN t.name, r.year
+            ORDER BY r.year
+            """
+            try:
+                teamResult = pd.DataFrame(dict(_) for _ in conn.query(query_string, db='neo4j'))
+                teamResult.columns = ['Team Name', 'Year ' + queryFor + ' Played for Them']
+                print(teamResult.to_string(index=False))
+            except Exception as e:
+                print("No team information available for " + queryFor)
+            print("\n")
+
+    #-------------------------Query for information about the given player's teams and return results-----------------------#
+            print(queryFor + "'s Teams Information:\n")
+            query_string = """
+            MATCH (p:Player)-[r:Played_For]->(t:Team)
+            WHERE p.name = '""" + queryFor + """'
+            RETURN DISTINCT t.name, t.city, t.coach, t.gm, t.owner, t.arena, t.arenaCapacity,
+            t.yearFounded, t.yearActiveTill
+            """
+            try:
+                result = pd.DataFrame(dict(_) for _ in conn.query(query_string, db='neo4j'))
+                result.columns = ['Team Name', 'City', 'Coach', 'General Manager', 'Owner', 'Arena', 'Arena Capacity', 
+                'Year Founded', 'Year Active Until'
+                ]
+                print(result.to_string(index=False))
+            except Exception as e:
+                print("No team information available for " + queryFor)
+
+            print("\n")
+
+#----------------------------------Query for similar players and return results--------------------------------------#
+            print("Similar Players:\n")
+            try:
+                if playerResult.loc[0, "Round Drafted"] == "Undrafted":
+                    query_string = """
+                    MATCH (p:Player) WHERE (abs(toInteger(""" + playerResult.loc[0, "PPG"] + """) - toInteger(p.totalPoints)) < 8)
+                    AND p.position = '""" + playerResult.loc[0, "Position"] + """' AND p.roundDrafted = 'Undrafted'
+                    AND (abs(toInteger(""" + playerResult.loc[0, "APG"] + """) - toInteger(p.totalAssists)) < 4)
+                    AND (abs(toInteger(""" + playerResult.loc[0, "RPG"] + """) - toInteger(p.totalRebounds)) < 4)
+                    AND p.name <> '""" + playerResult.loc[0, "Name"] + """'
+                    RETURN p.name LIMIT 6
+                    """
+                else:
+                    query_string = """
+                    MATCH (p:Player) WHERE (abs(toInteger(""" + playerResult.loc[0, "PPG"] + """) - toInteger(p.totalPoints)) < 8)
+                    AND p.position = '""" + playerResult.loc[0, "Position"] + """' AND toInteger(p.roundDrafted) = toInteger(""" + playerResult.loc[0, "Round Drafted"] + """)
+                    AND (abs(toInteger(""" + playerResult.loc[0, "APG"] + """) - toInteger(p.totalAssists)) < 4)
+                    AND (abs(toInteger(""" + playerResult.loc[0, "RPG"] + """) - toInteger(p.totalRebounds)) < 4)
+                    AND p.name <> '""" + playerResult.loc[0, "Name"] + """'
+                    RETURN p.name LIMIT 6
+                    """
+                result = pd.DataFrame(dict(_) for _ in conn.query(query_string, db='neo4j'))
+                result.columns = ['Name']
+                print(result.to_string(index=False))
+            except Exception as e:
+                print("No similar players available\n")
+
+        except Exception as e:
+            print("Invalid player (make sure you've spelled and capitalized the name correctly)\n")
+
+    elif(queryFor in teamNames.values):
+        # teamName = input("Which team would you like to know more about? ")
+
+        try:
+#----------------------------------Query for general team information and return results-----------------------------------#
+            print(queryFor + " Information:\n")
+            query_string = """MATCH (t:Team) WHERE t.name = '""" + queryFor + """'RETURN t.name, t.city, t.coach, t.gm, t.owner, t.arena, t.arenaCapacity,
+            t.yearFounded, t.yearActiveTill
+            """
+            result = pd.DataFrame(dict(_) for _ in conn.query(query_string, db='neo4j'))
+            result.columns = ['Team Name', 'City', 'Coach', 'General Manager', 'Owner', 'Arena', 'Arena Capacity', 
+            'Year Founded', 'Year Active Until'
+            ]
+            print(result.to_string(index=False))
+            print("\n")
 
 #-------------------------Query for information about the team's franchise history and return results-----------------------#
-        print(teamName + " History:\n")
-        query_string = """
-        MATCH (a:Team)-[r:Used_To_Be]->(b:Team)
-        WHERE a.name = '""" + teamName + """'
-        RETURN b.name, b.city, b.yearFounded, b.yearActiveTill
-        ORDER BY b.yearFounded
-        """
-        result = pd.DataFrame(dict(_) for _ in conn.query(query_string, db='neo4j'))
-        result.columns = ['Team Name', 'City', 'Year Founded', 'Year Active Until'
-        ]
-        print(result.to_string(index=False))
-        print("\n")
+            print(queryFor + " History:\n")
+            query_string = """
+            MATCH (a:Team)-[r:Used_To_Be]->(b:Team)
+            WHERE a.name = '""" + queryFor + """'
+            RETURN b.name, b.city, b.yearFounded, b.yearActiveTill
+            ORDER BY b.yearFounded
+            """
+            result = pd.DataFrame(dict(_) for _ in conn.query(query_string, db='neo4j'))
+            result.columns = ['Team Name', 'City', 'Year Founded', 'Year Active Until']
+            print(result.to_string(index=False))
+            print("\n")
 
 #-------------------------Query for information about recent players for given team and return results-----------------------#
-        print("Recent" + teamName + "Players:\n")
-        query_string = """
-        MATCH (p:Player)-[r:Played_For]->(t:Team)
-        WHERE t.name = '""" + teamName + """'
-        RETURN p.name,
-        p.birthdate, p.country, p.height, p.weight, p.jerseyNumber, p.roundDrafted, p.pickDrafted,
-        p.position, p.seasonsPlayed, p.totalPoints, p.totalRebounds, p.totalAssists
-        ORDER BY r.year LIMIT 10
-        """
-        result = pd.DataFrame(dict(_) for _ in conn.query(query_string, db='neo4j'))
-        result.columns = ['Name', 'Birthday', 'Country', 'Height (cm)', 'Weight (lbs)', 'Jersey Number', 
-        'Round Drafted', 'Pick Drafted', 'Position', 'Seasons', 'PPG', 
-        'RPG', 'APG'
-        ]
-        print(result.to_string(index=False))
-        print("\n")
+            print("Recent " + queryFor + "Players: \n")
+            query_string = """
+            MATCH (p:Player)-[r:Played_For]->(t:Team)
+            WHERE t.name = '""" + queryFor + """'
+            RETURN p.name,
+            p.country, p.height, p.weight, p.jerseyNumber, p.roundDrafted, p.pickDrafted,
+            p.position, p.seasonsPlayed, p.totalPoints, p.totalRebounds, p.totalAssists
+            ORDER BY r.year DESC LIMIT 10
+            """
+            result = pd.DataFrame(dict(_) for _ in conn.query(query_string, db='neo4j'))
+            result.columns = ['Name', 'Country', 'Height (cm)', 'Weight (lbs)', 'Jersey Number', 
+            'Round Drafted', 'Pick Drafted', 'Position', 'Seasons', 'PPG', 
+            'RPG', 'APG'
+            ]
+            print(result.to_string(index=False))
+            print("\n")
+
+        except Exception as e:
+            print("Invalid team (make sure you give the team and mascot, and they're spelled and capitalized correctly)\n")
 
     else:
-        print("Invalid query: must be a team or player\n")
+        print("""Invalid query\n""")
+
+conn.close()
