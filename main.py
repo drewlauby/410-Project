@@ -70,7 +70,7 @@ class populateDatabase:
         query_string = '''
         match(t:Team) set t.name = t.city + ' ' + t.nickname
         '''
-        conn.query(query_string, db='basketball')
+        conn.query(query_string, db='neo4j')
 
         #add team attributes
         query_string = '''
@@ -98,7 +98,7 @@ class populateDatabase:
 
 
     def loadDatabase(conn):
-        conn.query("CREATE OR REPLACE DATABASE basketball")
+        conn.query("CREATE OR REPLACE DATABASE neo4j")
         populateDatabase.createPlayers(conn)
         populateDatabase.createTeams(conn)
         populateDatabase.createRelationships(conn)
@@ -294,7 +294,7 @@ while True:
             print("\n")
 
 #-------------------------Query for information about recent players for given team and return results-----------------------#
-            print("Recent " + queryFor + "Players: \n")
+            print("Recent " + queryFor + " Players: \n")
             query_string = """
             MATCH (p:Player)-[r:Played_For]->(t:Team)
             WHERE t.name = '""" + queryFor + """'
